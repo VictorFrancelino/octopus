@@ -1,0 +1,18 @@
+{
+  "name": "octopus-framework",
+  "version": "0.1.0",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun src/cli.ts dev",
+    "build": "bun src/cli.ts build",
+    "start": "bun ./build/server.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
