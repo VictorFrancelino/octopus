@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { Title, Row } from "./core/components";
+import { Title, Row, Text, Column } from "./core/components";
 import { renderPage } from "./core/page";
 
 serve({
@@ -9,14 +9,16 @@ serve({
 
     if (url.pathname === "/") {
       const page = (
-        <Row style={{ display: "flex", justifyContent: "center" }}>
+        <Row justify="center" items="center">
           <Title
+            as="h1"
             class="hero-title"
             style={{ fontSize: "32px", textAlign: "center", color: "red" }}
             id="title-1"
           >
             Hello Octopus!
           </Title>
+          <Text>It's a extraordinary text.</Text>
         </Row>
       );
 

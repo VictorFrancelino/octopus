@@ -1,0 +1,16 @@
+<template>
+  <Row class="main">
+    <Title as="h2">Hello Octopus</Title>
+    <Text>Frameworkzinho na marra</Text>
+  </Row>
+</template>
+
+<script>
+const msg = "teste"
+</script>
+
+<style>
+.main {
+  color: red;
+}
+</style>
