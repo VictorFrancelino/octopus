@@ -1,6 +1,6 @@
 import { serve } from "bun";
-import { Row, Col, Button, FirstTitle } from "./src/core/components";
-import { renderPage } from "./src/core/page";
+import { Title, Row } from "./core/components";
+import { renderPage } from "./core/page";
 
 serve({
   port: 3000,
@@ -8,15 +8,23 @@ serve({
     const url = new URL(req.url);
 
     if (url.pathname === "/") {
-      const page = Row(
-        {},
-        Col({}, FirstTitle({ class: "my-title" }, "Bem-vindo ao Octopus!")),
-        Col({}, Button({ id: "start-button" }, "Começar"))
+      const page = (
+        <Row style={{ display: "flex", justifyContent: "center" }}>
+          <Title
+            class="hero-title"
+            style={{ fontSize: "32px", textAlign: "center", color: "red" }}
+            id="title-1"
+          >
+            Hello Octopus!
+          </Title>
+        </Row>
       );
+
       const html = renderPage(page, {
         title: "Página Inicial | Octopus",
         description: "Bem-vindo ao incrível framework Octopus.",
       });
+
       return new Response(html, {
         headers: { "Content-Type": "text/html; charset=UTF-8" },
       });

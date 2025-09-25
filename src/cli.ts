@@ -1,10 +1,15 @@
-#!/usr/bin/env bun
-
 import { spawn } from "bun";
+
+import { compilePage } from "./compiler";
+import fs from "fs/promises";
+import path from "path";
+
+const PAGES_DIR = path.resolve(__dirname, "pages");
+const OUTPUT_DIR = path.resolve(__dirname, "../dist/pages");
 
 const command = process.argv[2];
 
-const mainFile = "server.ts";
+const mainFile = "src/server.tsx";
 
 switch (command) {
   case "dev": {
@@ -55,5 +60,23 @@ switch (command) {
     console.log("dev - Inicia o servidor de desenvolvimento com hot-reload");
     console.log("build - Cria uma versão otimizada para produção");
     break;
+  }
+}
+
+async function build() {
+  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  const pageFiles = await fs.readdir(PAGES_DIR);
+
+  for (const file of pageFiles) {
+    if (file.endsWith(".oct")) {
+      const inputPath = path.join(PAGES_DIR, file);
+      const outputFilename = file.replace(".oct", ".js");
+      const outputPath = path.join(OUTPUT_DIR, outputFilename);
+
+      console.log(`Compilando ${file}...`);
+      const compiledCode = await compilePage(inputPath);
+      await fs.writeFile(outputPath, compiledCode);
+      console.log(`Sucesso! Arquivo gerado em ${outputPath}`);
+    }
   }
 }

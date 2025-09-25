@@ -1,35 +1,43 @@
 import { h } from "./h";
 import type { Node } from "./h";
 
-// Tipagem para as propriedades dos componentes
-type ComponentProps = { [key: string]: any };
+type ComponentProps = {
+  id?: string;
+  class?: string;
+  className?: string;
+  style?: Record<string, any>;
+  children?: Node | string | (Node | string)[];
+  [key: string]: any;
+};
 
-export const FirstTitle = (
-  props: ComponentProps,
-  ...children: (Node | string)[]
-) => h("h1", {}, ...children);
+export const Title = (props: ComponentProps): Node => {
+  const { children, ...restProps } = props;
 
-export const Row = (props: ComponentProps, ...children: (Node | string)[]) =>
-  h(
+  const childrenArray = Array.isArray(children)
+    ? children
+    : children
+    ? [children]
+    : [];
+
+  return h("h1", restProps, ...childrenArray) as Node;
+};
+
+export const Row = (props: ComponentProps): Node => {
+  const { children, style, class: className, ...restProps } = props;
+
+  const childrenArray = Array.isArray(children)
+    ? children
+    : children
+    ? [children]
+    : [];
+
+  return h(
     "div",
     {
-      class: `row ${props.class || ""}`.trim(), // Permite adicionar mais classes
-      style: { display: "flex", ...props.style }, // Permite sobrescrever ou adicionar estilos
-      ...props,
+      ...restProps,
+      class: `row ${className || ""}`.trim(),
+      style: { display: "flex", ...style },
     },
-    ...children
-  );
-
-export const Col = (props: ComponentProps, ...children: (Node | string)[]) =>
-  h(
-    "div",
-    {
-      class: `col ${props.class || ""}`.trim(),
-      style: { display: "flex", flexDirection: "column", ...props.style },
-      ...props,
-    },
-    ...children
-  );
-
-export const Button = (props: ComponentProps, ...children: (Node | string)[]) =>
-  h("button", props, ...children);
+    ...childrenArray
+  ) as Node;
+};
