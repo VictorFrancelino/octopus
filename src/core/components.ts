@@ -11,8 +11,13 @@ type ComponentProps = {
   [key: string]: any;
 };
 
-type TitleProps = ComponentProps & { as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6" };
+type TitleProps<T extends keyof HTMLTitleElement> = {
+  as?: T;
+  children?: Node | string | (Node | string)[];
+} & Omit<HTMLTitleElement[T], "children">
 type TextProps = ComponentProps & { as?: "p" | "span" | "small" };
+type LinkProps = ComponentProps;
+type InputProps = ComponentProps;
 type RowProps = ComponentProps & { justify?: "start" | "center" | "end" | "evenly" | "between" | "around" } & { items?: "stretch" | "flex-start" | "flex-end" | "center" | "baseline" | "start" | "end" | "normal" };
 type ButtonProps = ComponentProps & { type?: "button" | "submit" | "reset"; disabled?: boolean };
 
@@ -74,7 +79,7 @@ function buildProps(original: Record<string, any> = {}) {
 
 /* ---------------- Components ---------------- */
 
-export const Title = (props: TitleProps = {}): Node => {
+export const Title = <T extends keyof HTMLTitleElement>(props: TitleProps<T>): Node => {
   const { children, as = "h1", ...rest } = props;
   const childrenArray = normalizeChildren(children)
   const finalProps = buildProps(rest)
@@ -86,6 +91,20 @@ export const Text = (props: TextProps = {}): Node => {
   const childrenArray = normalizeChildren(children)
   const finalProps = buildProps(rest)
   return h(as, finalProps, ...childrenArray) as Node;
+}
+
+export const Link = (props: LinkProps = {}): Node => {
+  const { children, ...rest } = props
+  const childrenArray = normalizeChildren(children)
+  const finalProps = buildProps(rest)
+  return h("a", finalProps, ...childrenArray) as Node
+}
+
+export const Input = (props: InputProps = {}): Node => {
+  const { children, ...rest } = props
+  const childrenArray = normalizeChildren(children)
+  const finalProps = buildProps(rest)
+  return h("input", finalProps, ...childrenArray) as Node
 }
 
 export const Row = (props: RowProps = {}): Node => {
@@ -178,6 +197,8 @@ export const Button = (props: ButtonProps = {}): Node => {
 export default {
   Title,
   Text,
+  Link,
+  Input,
   Row,
   Column,
   Button,

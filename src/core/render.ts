@@ -17,11 +17,6 @@ export function render(node: Node | string): string {
 
   const { tag, props = {}, children } = node;
 
-  // Se for fragmento, renderiza apenas os filhos
-  if (tag === "__fragment__") {
-    return children?.map(render).join("") ?? "";
-  }
-
   // Constrói atributos
   const attrs = Object.entries(props)
     .filter(([key]) => key !== "children")

@@ -1,16 +1,7 @@
 <template>
   <Row class="main">
-    <Title as="h2">Hello Octopus</Title>
+    <Title id="title-1" dir="rtl" draggable=true>Hello Octopus</Title>
+    <Title as="h2">Isso é um título</Title>
     <Text>Frameworkzinho na marra</Text>
   </Row>
 </template>
-
-<script>
-const msg = "teste"
-</script>
-
-<style>
-.main {
-  color: red;
-}
-</style>

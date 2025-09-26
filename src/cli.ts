@@ -9,7 +9,7 @@ const OUTPUT_DIR = path.resolve(__dirname, "../dist/pages");
 
 const command = process.argv[2];
 
-const mainFile = "src/server.tsx";
+const mainFile = "src/server.ts";
 
 switch (command) {
   case "dev": {
