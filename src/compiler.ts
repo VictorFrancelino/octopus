@@ -21,8 +21,12 @@ function escapeAttr(s: string): string {
 function attrsObjToString(attrs: Record<string, string | undefined>): string {
   const pairs: string[] = [];
   for (const [k, v] of Object.entries(attrs)) {
-    if (v == null || v === "") continue;
-    pairs.push(`${k}="${escapeAttr(v)}"`);
+    if (v == null) continue;
+    if (v === "") {
+      pairs.push(`${k}`)
+    } else {
+      pairs.push(`${k}="${escapeAttr(v)}"`);
+    }
   }
   return pairs.length ? " " + pairs.join(" ") : "";
 }
@@ -49,8 +53,73 @@ function componentToTag(componentName: string, props: Record<string, string | un
   }
 }
 
+function addScopeToSimpleSegment(segment: string, attr: string): string {
+  if (!segment || segment.startsWith(":") || segment === "*") return segment;
+
+  const pseudoIndex = segment.indexOf(":");
+  const main = pseudoIndex === -1 ? segment : segment.slice(0, pseudoIndex)
+  const pseudo = pseudoIndex === -1 ? "" : segment.slice(pseudoIndex)
+
+  if (!main) return segment
+
+  return `${main}[${attr}]${pseudo}`
+}
+
+function scopeSelector(selector: string, attr: string): string {
+  const parts = selector.split(/(\s+|>|\+|~)/g)
+  return parts
+    .map(part => {
+      if (/^\s+$/.test(part) || part === ">" || part === "+" || part === "~") return part
+      return addScopeToSimpleSegment(part.trim(), attr)
+    })
+    .join("")
+}
+
+function scopeCss(css: string, attr: string): string {
+  let out = "";
+  let i = 0;
+  const len = css.length;
+
+  while (i < len) {
+    const idx = css.indexOf("{", i);
+    if (idx === -1) {
+      out += css.slice(i);
+      break;
+    }
+
+    const selectorText = css.slice(i, idx).trim();
+
+    let j = idx + 1;
+    let depth = 1;
+    while (j < len && depth > 0) {
+      const ch = css[j];
+      if (ch === "{") depth++;
+      else if (ch === "}") depth--;
+      j++;
+    }
+    const blockContent = css.slice(idx + 1, j - 1);
+
+    if (selectorText.startsWith("@")) {
+      const atRuleName = selectorText.split(/\s+/)[0] ?? "";
+      if (/^@keyframes/.test(atRuleName)) {
+        out += selectorText + "{" + blockContent + "}";
+      } else {
+        out += selectorText + "{" + scopeCss(blockContent, attr) + "}";
+      }
+    } else {
+      const selectors = selectorText.split(",").map(s => s.trim()).filter(Boolean);
+      const scoped = selectors.map(s => scopeSelector(s, attr)).join(", ");
+      out += scoped + "{" + blockContent + "}";
+    }
+
+    i = j;
+  }
+
+  return out;
+}
+
 // Constrói HTML recursivamente: retorna string HTML
-function nodeToHtml($: cheerio.CheerioAPI, node: Node): string {
+function nodeToHtml($: cheerio.CheerioAPI, node: Node, scopeAttr: string): string {
   if (node.type === "text") {
     const textNode = node as Text;
     return textNode.data ?? "";
@@ -85,12 +154,14 @@ function nodeToHtml($: cheerio.CheerioAPI, node: Node): string {
       outTag = mapped;
     }
 
+    props[scopeAttr] = "";
+
     const attrsStr = attrsObjToString(props);
 
     const children = $(el)
       .contents()
       .toArray()
-      .map((child) => nodeToHtml($, child))
+      .map((child) => nodeToHtml($, child, scopeAttr))
       .join("");
 
     return `<${outTag}${attrsStr}>${children}</${outTag}>`;
@@ -102,16 +173,34 @@ function nodeToHtml($: cheerio.CheerioAPI, node: Node): string {
 // ---- Função principal pública (compila um arquivo .oct para um módulo JS string) ----
 export function compileOctopus(source: string): string {
   const templateMatch = source.match(/<template>([\s\S]*?)<\/template>/);
+  const styleMatch = source.match(/<style>([\s\S]*?)<\/style>/);
+  const scriptMatch = source.match(/<script([^>]*)>([\s\S]*?)<\/script>/i)
+
   const template = templateMatch?.[1]?.trim() ?? "";
+  const style = styleMatch?.[1]?.trim() ?? ""
+
+  const scriptAttrsRaw = scriptMatch?.[1]?.trim() ?? ""
+  const scriptContent = scriptMatch?.[2] ?? ""
+
+  const scopeHash = crypto.createHash("md5").update(template).digest("hex").slice(0, 6)
+  const scopeAttr = `data-v-${scopeHash}`
 
   const $ = cheerio.load(`<body>${template}</body>`, { xmlMode: true });
   const rootChildren = $("body").contents().toArray();
+  const html = rootChildren.map((n) => nodeToHtml($, n, scopeAttr)).join("") || "";
 
-  const html = rootChildren.map((n) => nodeToHtml($, n)).join("") || "";
-  return html
+  const finalCss = style ? scopeCss(style, `data-v-${scopeHash}`) : ""
+  const cssTag = finalCss ? `\n<style>${finalCss}</style>` : ""
+
+  const scriptTag = scriptContent
+    ? `\n<script${scriptAttrsRaw ? " " + scriptAttrsRaw : ""}>\n${scriptContent}\n</script>`
+    : ""
+
+  return `${html}${cssTag}${scriptTag}`
 }
 
-// Se preferir versão assíncrona baseada em fs.promises:
+// Versão assíncrona baseada em fs.promises:
 export async function compilePage(inputPath: string): Promise<string> {
-  return compileOctopus(inputPath);
+  const source = fs.readFileSync(inputPath, "utf-8")
+  return compileOctopus(source);
 }

@@ -1,3 +1,7 @@
+<script>
+  alert("Hello Octopus!");
+</script>
+
 <template>
   <Row class="main">
     <Title id="title-1" dir="rtl" draggable=true>Hello Octopus</Title>
@@ -5,3 +9,14 @@
     <Text>Frameworkzinho na marra</Text>
   </Row>
 </template>
+
+<style>
+  .main {
+    background-color: salmon;
+  }
+
+  #title-1 {
+    font-weight: bold;
+    color: white;
+  }
+</style>
