@@ -28,12 +28,16 @@ export function render(node: Node | string): string {
         return `style="${escapeHtml(styleString)}"`;
       }
 
-      if (key === "className") {
-        return `class="${escapeHtml(String(value))}"`;
-      }
-
       if (value === true) {
         return key;
+      }
+
+      if (typeof value === "number") {
+        return `${key}="${value}"`;
+      }
+
+      if (key === "className") {
+        return `class="${escapeHtml(String(value))}"`;
       }
 
       return `${key}="${escapeHtml(String(value))}"`;

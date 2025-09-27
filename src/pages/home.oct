@@ -8,7 +8,17 @@
     <Title as="h2">Isso é um título</Title>
     <Text>Frameworkzinho na marra</Text>
   </Row>
-  <Image src="https://preview.redd.it/how-many-of-yall-liked-zenitsu-before-he-locked-in-and-what-v0-gs35q10i8cgf1.jpg?width=1080&crop=smart&auto=webp&s=bd3c1b93736697c707254b6b6f217531fac8af51" />
+  <Image 
+    src="https://preview.redd.it/how-many-of-yall-liked-zenitsu-before-he-locked-in-and-what-v0-gs35q10i8cgf1.jpg?width=1080&crop=smart&auto=webp&s=bd3c1b93736697c707254b6b6f217531fac8af51" 
+    alt="Descrição da imagem"
+    width="500"
+    height="250"
+    loading="lazy"
+    decoding="async"
+    class="minha-imagem"
+    quality={25}
+    placeholder="blur"
+  />
 </template>
 
 <style>

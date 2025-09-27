@@ -30,23 +30,20 @@ export function styleObjectToString(obj: Record<string, any>): string {
 
 /*
  * buildProps: cria o objeto de props final que será passado para `h()`.
- * - mergeia class/className em `class`
  * - converte id para string
  * - cuida do style (string ou object)
  * - remove props internos (ex: gap) que não queremos como atributos HTML
  */
 export function buildProps(original: Record<string, any> = {}) {
-  const { id, class: cls, className, style, gap, ...rest } = original;
+  const { id, class: cls, style, gap, children, ...rest } = original;
   const props: Record<string, any> = { ...rest };
 
   if (id != null) props.id = String(id);
-  const classValue = cls ?? className;
-  if (classValue) props.class = String(classValue);
+  if (cls != null) props.class = String(cls);
 
   const normalizedStyle = normalizeStyle(style);
   if (normalizedStyle) props.style = normalizedStyle;
 
-  // if gap is provided, convert to style gap (prefers explicit style object)
   if (gap != null) {
     const gapValue = typeof gap === "number" ? `${gap}px` : String(gap);
     if (typeof props.style === "object" && props.style !== null) {
@@ -83,14 +80,12 @@ export function applyDefaultStyleAndClass(
     if (typeof finalProps.style === "string") {
       finalProps.style = `${defaultStyle}; ${finalProps.style}`.trim();
     } else if (typeof finalProps.style === "object") {
-      // keep user props priority
       finalProps.style = { ...finalProps.style };
       (finalProps as any).__append = defaultStyle;
     }
     return;
   }
 
-  // defaultStyle is object
   if (typeof finalProps.style === "object") {
     finalProps.style = { ...defaultStyle, ...finalProps.style };
   } else if (typeof finalProps.style === "string") {

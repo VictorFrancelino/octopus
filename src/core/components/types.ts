@@ -24,10 +24,26 @@ export type TitleProps = ComponentProps & {
 };
 export type TextProps = ComponentProps & { as?: "p" | "span" | "small" };
 
-export type ImageProps = Omit<
-  ImgHTMLAttributes<HTMLImageElement>,
-  "children"
-> & { class?: string };
+export type ImageProps = {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  loading?: 'lazy' | 'eager';
+  decoding?: 'async' | 'sync' | 'auto';
+  srcSet?: string;
+  sizes?: string;
+  class?: string;
+  style?: Record<string, any> | string;
+  // Otimizações avançadas
+  quality?: number;
+  format?: 'auto' | 'webp' | 'avif' | 'jpeg' | 'png';
+  placeholder?: 'blur' | 'empty';
+  blurDataURL?: string;
+  // Atributos de acessibilidade
+  role?: string;
+  ariaLabel?: string;
+}
 
 export type LinkProps = Omit<
   AnchorHTMLAttributes<HTMLLinkElement>,
@@ -46,14 +62,14 @@ export type InputProps = Omit<
 export type RowProps = ComponentProps & {
   justify?: "start" | "center" | "end" | "evenly" | "between" | "around";
   items?:
-    | "stretch"
-    | "flex-start"
-    | "flex-end"
-    | "center"
-    | "baseline"
-    | "start"
-    | "end"
-    | "normal";
+  | "stretch"
+  | "flex-start"
+  | "flex-end"
+  | "center"
+  | "baseline"
+  | "start"
+  | "end"
+  | "normal";
 };
 export type ButtonProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,

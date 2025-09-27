@@ -3,252 +3,341 @@ import * as cheerio from "cheerio";
 import type { Node, Element, Text } from "domhandler";
 import crypto from "crypto";
 
-const allowedHtmlTags = new Set([
-  "div",
-  "span",
-  "p",
-  "h1",
-  "h2",
-  "h3",
-  "h4",
-  "h5",
-  "h6",
-  "ul",
-  "ol",
-  "li",
-  "a",
-  "img",
-  "button",
-  "section",
-  "article",
-  "header",
-  "footer",
-  "main",
-  "nav",
-  "form",
-  "input",
-  "label",
-  "textarea",
-  "small",
-  "strong",
-  "em",
-  "br",
-  "hr",
-]);
+// ===== CONSTANTES E CONFIGURAÇÕES =====
+const CONFIG = {
+  ALLOWED_HTML_TAGS: new Set([
+    "div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li", "a", "img", "button", "section", "article",
+    "header", "footer", "main", "nav", "form", "input", "label",
+    "textarea", "small", "strong", "em", "br", "hr",
+  ]),
+  NATIVE_COMPONENTS: new Set(["Title", "Text", "Row", "Column", "Image"]),
+  SCOPE_HASH_LENGTH: 6,
+} as const;
 
-const nativeComponents = new Set(["Title", "Text", "Row", "Column", "Image"]);
-
-// escapador básico para valores de atributos
-function escapeAttr(s: string): string {
-  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+// ===== TIPOS =====
+interface TemplateParts {
+  template: string;
+  style: string;
+  script: {
+    content: string;
+    attributes: string;
+  };
 }
 
-// Converte um objeto de atributos para string HTML: { id: "x", class: "y" } → ' id="x" class="y"'
-function attrsObjToString(attrs: Record<string, string | undefined>): string {
-  const pairs: string[] = [];
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v == null) continue;
-    if (v === "") {
-      pairs.push(`${k}`);
-    } else {
-      pairs.push(`${k}="${escapeAttr(v)}"`);
-    }
+interface CompilationResult {
+  html: string;
+  css: string;
+  js: string;
+}
+
+// ===== UTILITÁRIOS =====
+class AttributeUtils {
+  static escape(value: any): string {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
-  return pairs.length ? " " + pairs.join(" ") : "";
-}
 
-// Mapeamento simples de componentes nativos → tag HTML defaults
-function componentToTag(
-  componentName: string,
-  props: Record<string, string | undefined>
-) {
-  switch (componentName) {
-    case "Title": {
-      const as = props["as"] ?? "h1";
-      delete props["as"];
-      return as;
-    }
-    case "Text": {
-      const as = props["as"] ?? "p";
-      delete props["as"];
-      return as;
-    }
-    case "Row":
-    case "Column": {
-      return "div";
-    }
-    case "Image": {
-      return "img";
-    }
-    default:
-      return null;
+  static parseValue(value: string): string | number | boolean {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    if (!isNaN(Number(value)) && value.trim() !== "") return Number(value);
+    return value;
   }
-}
 
-function addScopeToSimpleSegment(segment: string, attr: string): string {
-  if (!segment || segment.startsWith(":") || segment === "*") return segment;
+  static objectToString(attrs: Record<string, string | number | boolean | undefined>): string {
+    const pairs: string[] = [];
 
-  const pseudoIndex = segment.indexOf(":");
-  const main = pseudoIndex === -1 ? segment : segment.slice(0, pseudoIndex);
-  const pseudo = pseudoIndex === -1 ? "" : segment.slice(pseudoIndex);
+    for (const [key, value] of Object.entries(attrs)) {
+      if (value == null) continue;
 
-  if (!main) return segment;
-
-  return `${main}[${attr}]${pseudo}`;
-}
-
-function scopeSelector(selector: string, attr: string): string {
-  const parts = selector.split(/(\s+|>|\+|~)/g);
-  return parts
-    .map((part) => {
-      if (/^\s+$/.test(part) || part === ">" || part === "+" || part === "~")
-        return part;
-      return addScopeToSimpleSegment(part.trim(), attr);
-    })
-    .join("");
-}
-
-function scopeCss(css: string, attr: string): string {
-  let out = "";
-  let i = 0;
-  const len = css.length;
-
-  while (i < len) {
-    const idx = css.indexOf("{", i);
-    if (idx === -1) {
-      out += css.slice(i);
-      break;
-    }
-
-    const selectorText = css.slice(i, idx).trim();
-
-    let j = idx + 1;
-    let depth = 1;
-    while (j < len && depth > 0) {
-      const ch = css[j];
-      if (ch === "{") depth++;
-      else if (ch === "}") depth--;
-      j++;
-    }
-    const blockContent = css.slice(idx + 1, j - 1);
-
-    if (selectorText.startsWith("@")) {
-      const atRuleName = selectorText.split(/\s+/)[0] ?? "";
-      if (/^@keyframes/.test(atRuleName)) {
-        out += selectorText + "{" + blockContent + "}";
+      if (value === true) {
+        pairs.push(key);
+      } else if (typeof value === 'number') {
+        pairs.push(`${key}="${value}"`);
+      } else if (value === "") {
+        pairs.push(key);
       } else {
-        out += selectorText + "{" + scopeCss(blockContent, attr) + "}";
+        pairs.push(`${key}="${this.escape(value)}"`);
       }
-    } else {
-      const selectors = selectorText
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const scoped = selectors.map((s) => scopeSelector(s, attr)).join(", ");
-      out += scoped + "{" + blockContent + "}";
     }
 
-    i = j;
+    return pairs.length ? ` ${pairs.join(" ")}` : "";
   }
-
-  return out;
 }
 
-// Constrói HTML recursivamente: retorna string HTML
-function nodeToHtml(
-  $: cheerio.CheerioAPI,
-  node: Node,
-  scopeAttr: string
-): string {
-  if (node.type === "text") {
-    const textNode = node as Text;
-    return textNode.data ?? "";
-  }
+class ComponentMapper {
+  static mapToHTMLTag(componentName: string, props: Record<string, any>): string {
+    const mappings: Record<string, (props: Record<string, any>) => string> = {
+      Title: (props) => {
+        const tag = props.as || "h1";
+        delete props.as;
+        return tag;
+      },
+      Text: (props) => {
+        const tag = props.as || "p";
+        delete props.as;
+        return tag;
+      },
+      Row: () => "div",
+      Column: () => "div",
+      Image: () => "img",
+    };
 
-  if (node.type === "tag") {
-    const el = node as Element;
-    const tagName = el.name;
-
-    const rawAttrs = el.attribs || {};
-    const props: Record<string, string | undefined> = {};
-    for (const [k, v] of Object.entries(rawAttrs)) {
-      props[k] = v?.trim();
+    const mapper = mappings[componentName];
+    if (!mapper) {
+      throw new Error(`Unknown Octopus component <${componentName}>`);
     }
 
-    const isComponent = /^[A-Z]/.test(tagName);
+    return mapper(props);
+  }
+}
+
+class CSSScoper {
+  static addScopeToSegment(segment: string, attr: string): string {
+    if (!segment || segment.startsWith(":") || segment === "*") return segment;
+
+    const pseudoIndex = segment.indexOf(":");
+    const main = pseudoIndex === -1 ? segment : segment.slice(0, pseudoIndex);
+    const pseudo = pseudoIndex === -1 ? "" : segment.slice(pseudoIndex);
+
+    return main ? `${main}[${attr}]${pseudo}` : segment;
+  }
+
+  static scopeSelector(selector: string, attr: string): string {
+    const parts = selector.split(/(\s+|>|\+|~)/g);
+    return parts
+      .map(part => /^\s+$/.test(part) || [">", "+", "~"].includes(part)
+        ? part
+        : this.addScopeToSegment(part.trim(), attr)
+      )
+      .join("");
+  }
+
+  static scopeCSS(css: string, attr: string): string {
+    let result = "";
+    let position = 0;
+
+    while (position < css.length) {
+      const blockStart = css.indexOf("{", position);
+      if (blockStart === -1) {
+        result += css.slice(position);
+        break;
+      }
+
+      const selectorText = css.slice(position, blockStart).trim();
+      const blockEnd = this.findMatchingBrace(css, blockStart);
+
+      if (blockEnd === -1) {
+        result += css.slice(position);
+        break;
+      }
+
+      const blockContent = css.slice(blockStart + 1, blockEnd);
+
+      if (selectorText.startsWith("@")) {
+        result += this.processAtRule(selectorText, blockContent, attr);
+      } else {
+        result += this.processRegularRule(selectorText, blockContent, attr);
+      }
+
+      position = blockEnd + 1;
+    }
+
+    return result;
+  }
+
+  private static findMatchingBrace(css: string, start: number): number {
+    let depth = 1;
+    for (let i = start + 1; i < css.length; i++) {
+      if (css[i] === "{") depth++;
+      else if (css[i] === "}") depth--;
+
+      if (depth === 0) return i;
+    }
+    return -1;
+  }
+
+  private static processAtRule(rule: string, content: string, attr: string): string {
+    const ruleName = rule.split(/\s+/)[0] || "";
+
+    if (ruleName.startsWith("@keyframes")) {
+      return `${rule}{${content}}`;
+    } else {
+      return `${rule}{${this.scopeCSS(content, attr)}}`;
+    }
+  }
+
+  private static processRegularRule(selectors: string, content: string, attr: string): string {
+    const scopedSelectors = selectors
+      .split(",")
+      .map(selector => this.scopeSelector(selector.trim(), attr))
+      .join(", ");
+
+    return `${scopedSelectors}{${content}}`;
+  }
+}
+
+// ===== PROCESSADOR DE TEMPLATE =====
+class TemplateProcessor {
+  constructor(private scopeAttr: string) { }
+
+  processNode($: cheerio.CheerioAPI, node: Node): string {
+    if (node.type === "text") {
+      return (node as Text).data ?? "";
+    }
+
+    if (node.type === "tag") {
+      return this.processElement($, node as Element);
+    }
+
+    return "";
+  }
+
+  private processElement($: cheerio.CheerioAPI, element: Element): string {
+    const tagName = element.name;
+    const props = this.extractAttributes(element);
+
+    this.validateTag(tagName, props);
+
+    const htmlTag = this.isComponent(tagName)
+      ? ComponentMapper.mapToHTMLTag(tagName, props)
+      : tagName;
+
+    props[this.scopeAttr] = "";
+
+    const attributes = AttributeUtils.objectToString(props);
+    const children = this.processChildren($, element);
+
+    return `<${htmlTag}${attributes}>${children}</${htmlTag}>`;
+  }
+
+  private extractAttributes(element: Element): Record<string, any> {
+    const props: Record<string, any> = {};
+    const rawAttrs = element.attribs || {};
+
+    for (const [key, value] of Object.entries(rawAttrs)) {
+      if (value != null) {
+        props[key] = AttributeUtils.parseValue(value);
+      }
+    }
+
+    return props;
+  }
+
+  private validateTag(tagName: string, props: Record<string, any>): void {
+    const isComponent = this.isComponent(tagName);
 
     if (isComponent) {
-      if (!nativeComponents.has(tagName)) {
+      if (!CONFIG.NATIVE_COMPONENTS.has(tagName)) {
         throw new Error(`Unknown Octopus component <${tagName}>`);
       }
     } else {
-      if (!allowedHtmlTags.has(tagName)) {
-        throw new Error(
-          `HTML tag <${tagName}> is not allowed in Octopus templates`
-        );
+      if (!CONFIG.ALLOWED_HTML_TAGS.has(tagName)) {
+        throw new Error(`HTML tag <${tagName}> is not allowed in Octopus templates`);
       }
     }
-
-    let outTag = tagName;
-    if (isComponent) {
-      const mapped = componentToTag(tagName, props);
-      if (!mapped) throw new Error(`No mapping for component <${tagName}>`);
-      outTag = mapped;
-    }
-
-    props[scopeAttr] = "";
-
-    const attrsStr = attrsObjToString(props);
-
-    const children = $(el)
-      .contents()
-      .toArray()
-      .map((child) => nodeToHtml($, child, scopeAttr))
-      .join("");
-
-    return `<${outTag}${attrsStr}>${children}</${outTag}>`;
   }
 
-  return "";
+  private isComponent(tagName: string): boolean {
+    return /^[A-Z]/.test(tagName);
+  }
+
+  private processChildren($: cheerio.CheerioAPI, element: Element): string {
+    return $(element)
+      .contents()
+      .toArray()
+      .map(child => this.processNode($, child))
+      .join("");
+  }
 }
 
-// ---- Função principal pública (compila um arquivo .oct para um módulo JS string) ----
+// ===== EXTRATOR DE PARTES DO TEMPLATE =====
+class TemplateParser {
+  static extractParts(source: string): TemplateParts {
+    return {
+      template: this.extractTagContent(source, "template"),
+      style: this.extractTagContent(source, "style"),
+      script: {
+        content: this.extractTagContent(source, "script"),
+        attributes: this.extractScriptAttributes(source),
+      },
+    };
+  }
+
+  private static extractTagContent(source: string, tag: string): string {
+    const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\/${tag}>`, "i");
+    const match = source.match(regex);
+    return match?.[1]?.trim() ?? "";
+  }
+
+  private static extractScriptAttributes(source: string): string {
+    const match = source.match(/<script([^>]*)>/i);
+    return match?.[1]?.trim() ?? "";
+  }
+}
+
+// ===== COMPILADOR PRINCIPAL =====
+class OctopusCompiler {
+  static compile(source: string): string {
+    const parts = TemplateParser.extractParts(source);
+    const scopeAttr = this.generateScopeAttr(parts.template);
+
+    const result = {
+      html: this.compileTemplate(parts.template, scopeAttr),
+      css: this.compileCSS(parts.style, scopeAttr),
+      js: this.compileScript(parts.script),
+    };
+
+    return this.assembleFinalOutput(result);
+  }
+
+  private static generateScopeAttr(template: string): string {
+    const hash = crypto
+      .createHash("md5")
+      .update(template)
+      .digest("hex")
+      .slice(0, CONFIG.SCOPE_HASH_LENGTH);
+
+    return `data-v-${hash}`;
+  }
+
+  private static compileTemplate(template: string, scopeAttr: string): string {
+    if (!template) return "";
+
+    const $ = cheerio.load(`<body>${template}</body>`, { xmlMode: true });
+    const processor = new TemplateProcessor(scopeAttr);
+    const rootChildren = $("body").contents().toArray();
+
+    return rootChildren
+      .map(node => processor.processNode($, node))
+      .join("");
+  }
+
+  private static compileCSS(style: string, scopeAttr: string): string {
+    return style ? CSSScoper.scopeCSS(style, scopeAttr) : "";
+  }
+
+  private static compileScript(script: { content: string; attributes: string }): string {
+    if (!script.content) return "";
+
+    const attrs = script.attributes ? ` ${script.attributes}` : "";
+    return `\n<script${attrs}>\n${script.content}\n</script>`;
+  }
+
+  private static assembleFinalOutput(result: CompilationResult): string {
+    const cssTag = result.css ? `\n<style>${result.css}</style>` : "";
+    return `${result.html}${cssTag}${result.js}`;
+  }
+}
+
+// ===== API PÚBLICA =====
 export function compileOctopus(source: string): string {
-  const templateMatch = source.match(/<template>([\s\S]*?)<\/template>/);
-  const styleMatch = source.match(/<style>([\s\S]*?)<\/style>/);
-  const scriptMatch = source.match(/<script([^>]*)>([\s\S]*?)<\/script>/i);
-
-  const template = templateMatch?.[1]?.trim() ?? "";
-  const style = styleMatch?.[1]?.trim() ?? "";
-
-  const scriptAttrsRaw = scriptMatch?.[1]?.trim() ?? "";
-  const scriptContent = scriptMatch?.[2] ?? "";
-
-  const scopeHash = crypto
-    .createHash("md5")
-    .update(template)
-    .digest("hex")
-    .slice(0, 6);
-  const scopeAttr = `data-v-${scopeHash}`;
-
-  const $ = cheerio.load(`<body>${template}</body>`, { xmlMode: true });
-  const rootChildren = $("body").contents().toArray();
-  const html =
-    rootChildren.map((n) => nodeToHtml($, n, scopeAttr)).join("") || "";
-
-  const finalCss = style ? scopeCss(style, `data-v-${scopeHash}`) : "";
-  const cssTag = finalCss ? `\n<style>${finalCss}</style>` : "";
-
-  const scriptTag = scriptContent
-    ? `\n<script${
-        scriptAttrsRaw ? " " + scriptAttrsRaw : ""
-      }>\n${scriptContent}\n</script>`
-    : "";
-
-  return `${html}${cssTag}${scriptTag}`;
+  return OctopusCompiler.compile(source);
 }
 
-// Versão assíncrona baseada em fs.promises:
 export async function compilePage(inputPath: string): Promise<string> {
   const source = fs.readFileSync(inputPath, "utf-8");
   return compileOctopus(source);
