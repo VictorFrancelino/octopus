@@ -10,7 +10,8 @@
     "start": "bun ./build/server.js"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.1.14"
   },
   "peerDependencies": {
     "typescript": "^5"

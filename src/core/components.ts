@@ -1,5 +1,6 @@
 import { h } from "./h";
 import type { Node } from "./h";
+import type { ImgHTMLAttributes } from "react";
 
 type ComponentProps = {
   id?: string;
@@ -14,21 +15,41 @@ type ComponentProps = {
 type TitleProps<T extends keyof HTMLTitleElement> = {
   as?: T;
   children?: Node | string | (Node | string)[];
-} & Omit<HTMLTitleElement[T], "children">
+} & Omit<HTMLTitleElement[T], "children">;
+
+type ImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "children">;
+
 type TextProps = ComponentProps & { as?: "p" | "span" | "small" };
 type LinkProps = ComponentProps;
 type InputProps = ComponentProps;
-type RowProps = ComponentProps & { justify?: "start" | "center" | "end" | "evenly" | "between" | "around" } & { items?: "stretch" | "flex-start" | "flex-end" | "center" | "baseline" | "start" | "end" | "normal" };
-type ButtonProps = ComponentProps & { type?: "button" | "submit" | "reset"; disabled?: boolean };
+type RowProps = ComponentProps & {
+  justify?: "start" | "center" | "end" | "evenly" | "between" | "around";
+} & {
+  items?:
+    | "stretch"
+    | "flex-start"
+    | "flex-end"
+    | "center"
+    | "baseline"
+    | "start"
+    | "end"
+    | "normal";
+};
+type ButtonProps = ComponentProps & {
+  type?: "button" | "submit" | "reset";
+  disabled?: boolean;
+};
 
-type Children = Node | string | (Node | string)[]
+type Children = Node | string | (Node | string)[];
 
 function normalizeChildren(children?: Children): (Node | string)[] {
-  if (children == null) return []
-  return Array.isArray(children) ? children : [children]
+  if (children == null) return [];
+  return Array.isArray(children) ? children : [children];
 }
 
-function normalizeStyle(style?: string | Record<string, any>): string | Record<string, any> | undefined {
+function normalizeStyle(
+  style?: string | Record<string, any>
+): string | Record<string, any> | undefined {
   if (!style) return undefined;
   if (typeof style === "string") return style.trim() || undefined;
   return style;
@@ -79,33 +100,45 @@ function buildProps(original: Record<string, any> = {}) {
 
 /* ---------------- Components ---------------- */
 
-export const Title = <T extends keyof HTMLTitleElement>(props: TitleProps<T>): Node => {
+export const Title = <T extends keyof HTMLTitleElement>(
+  props: TitleProps<T>
+): Node => {
   const { children, as = "h1", ...rest } = props;
-  const childrenArray = normalizeChildren(children)
-  const finalProps = buildProps(rest)
+  const childrenArray = normalizeChildren(children);
+  const finalProps = buildProps(rest);
   return h(as, finalProps, ...childrenArray) as Node;
 };
 
 export const Text = (props: TextProps = {}): Node => {
   const { children, as = "p", ...rest } = props;
-  const childrenArray = normalizeChildren(children)
-  const finalProps = buildProps(rest)
+  const childrenArray = normalizeChildren(children);
+  const finalProps = buildProps(rest);
   return h(as, finalProps, ...childrenArray) as Node;
-}
+};
 
 export const Link = (props: LinkProps = {}): Node => {
-  const { children, ...rest } = props
-  const childrenArray = normalizeChildren(children)
-  const finalProps = buildProps(rest)
-  return h("a", finalProps, ...childrenArray) as Node
-}
+  const { children, ...rest } = props;
+  const childrenArray = normalizeChildren(children);
+  const finalProps = buildProps(rest);
+  return h("a", finalProps, ...childrenArray) as Node;
+};
 
 export const Input = (props: InputProps = {}): Node => {
-  const { children, ...rest } = props
-  const childrenArray = normalizeChildren(children)
-  const finalProps = buildProps(rest)
-  return h("input", finalProps, ...childrenArray) as Node
-}
+  const { children, ...rest } = props;
+  const childrenArray = normalizeChildren(children);
+  const finalProps = buildProps(rest);
+  return h("input", finalProps, ...childrenArray) as Node;
+};
+
+export const Image = (props: ImageProps) => {
+  const { className, class: cls, style, children, ...rest } = props as any;
+  if (children) console.warn("Image não aceita children; serão ignorados.");
+  const finalProps: Record<string, any> = { ...(rest || {}) };
+  if (className) finalProps.class = className;
+  if (cls) finalProps.class = cls;
+  if (style) finalProps.style = style;
+  return h("img", finalProps);
+};
 
 export const Row = (props: RowProps = {}): Node => {
   const {
@@ -163,7 +196,9 @@ export const Row = (props: RowProps = {}): Node => {
   }
 
   // add a default row class
-  finalProps.class = `${(finalProps.class ?? "")}`.trim() ? `row ${finalProps.class}`.trim() : `row`;
+  finalProps.class = `${finalProps.class ?? ""}`.trim()
+    ? `row ${finalProps.class}`.trim()
+    : `row`;
   return h("div", finalProps, ...childrenArray) as Node;
 };
 
@@ -171,19 +206,31 @@ export const Column = (props: ComponentProps = {}): Node => {
   const { children, style, class: className, ...rest } = props;
   const childrenArray = normalizeChildren(children);
   const finalProps = buildProps({ ...rest, class: className, style });
-  if (!finalProps.style) finalProps.style = { display: "flex", flexDirection: "column" };
+  if (!finalProps.style)
+    finalProps.style = { display: "flex", flexDirection: "column" };
   else if (typeof finalProps.style === "object")
-    finalProps.style = { display: "flex", flexDirection: "column", ...finalProps.style };
+    finalProps.style = {
+      display: "flex",
+      flexDirection: "column",
+      ...finalProps.style,
+    };
   else if (typeof finalProps.style === "string")
     finalProps.style = `display:flex; flex-direction:column; ${finalProps.style}`;
-  finalProps.class = `${(finalProps.class ?? "")}`.trim()
+  finalProps.class = `${finalProps.class ?? ""}`.trim()
     ? `column ${finalProps.class}`.trim()
     : `column`;
   return h("div", finalProps, ...childrenArray) as Node;
 };
 
 export const Button = (props: ButtonProps = {}): Node => {
-  const { children, type = "button", disabled, style, class: className, ...rest } = props;
+  const {
+    children,
+    type = "button",
+    disabled,
+    style,
+    class: className,
+    ...rest
+  } = props;
   const childrenArray = normalizeChildren(children);
   const finalProps = buildProps({ ...rest, class: className, style });
   finalProps.type = type;
@@ -198,6 +245,7 @@ export default {
   Title,
   Text,
   Link,
+  Image,
   Input,
   Row,
   Column,
