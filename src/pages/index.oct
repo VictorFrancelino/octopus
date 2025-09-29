@@ -4,7 +4,7 @@
 
 <template>
   <Row class="main">
-    <Title id="title-1" dir="rtl" draggable=true>Hello Octopus</Title>
+    <Title id="title-1" size="xs">Hello Octopus</Title>
     <Title as="h2">Isso é um título</Title>
     <Text>Frameworkzinho na marra</Text>
   </Row>
@@ -22,6 +22,7 @@
   }
 
   #title-1 {
+    font-family: Inter, sans-serif;
     font-weight: bold;
     color: white;
   }
