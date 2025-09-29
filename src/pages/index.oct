@@ -3,17 +3,11 @@
 </script>
 
 <template>
-  <Row class="main">
-    <Title id="title-1" size="xs">Hello Octopus</Title>
+  <Center class="main">
+    <Title id="title-1">Hello Octopus</Title>
     <Title as="h2">Isso é um título</Title>
     <Text>Frameworkzinho na marra</Text>
-  </Row>
-  <Image 
-    src="/image-1.webp" 
-    alt="Descrição da imagem"
-    width="500"
-    quality={25}
-  />
+  </Center>
 </template>
 
 <style>
