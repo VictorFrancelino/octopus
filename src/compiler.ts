@@ -2,14 +2,41 @@ import fs from "fs";
 import * as cheerio from "cheerio";
 import type { Node, Element, Text } from "domhandler";
 import crypto from "crypto";
+import { optimizeLocalImage } from "./utils/imageOptimizer";
 
 // ===== CONSTANTES E CONFIGURAÇÕES =====
 const CONFIG = {
   ALLOWED_HTML_TAGS: new Set([
-    "div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "ul", "ol", "li", "a", "img", "button", "section", "article",
-    "header", "footer", "main", "nav", "form", "input", "label",
-    "textarea", "small", "strong", "em", "br", "hr",
+    "div",
+    "span",
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "img",
+    "button",
+    "section",
+    "article",
+    "header",
+    "footer",
+    "main",
+    "nav",
+    "form",
+    "input",
+    "label",
+    "textarea",
+    "small",
+    "strong",
+    "em",
+    "br",
+    "hr",
   ]),
   NATIVE_COMPONENTS: new Set(["Title", "Text", "Row", "Column", "Image"]),
   SCOPE_HASH_LENGTH: 6,
@@ -47,7 +74,9 @@ class AttributeUtils {
     return value;
   }
 
-  static objectToString(attrs: Record<string, string | number | boolean | undefined>): string {
+  static objectToString(
+    attrs: Record<string, string | number | boolean | undefined>
+  ): string {
     const pairs: string[] = [];
 
     for (const [key, value] of Object.entries(attrs)) {
@@ -55,7 +84,7 @@ class AttributeUtils {
 
       if (value === true) {
         pairs.push(key);
-      } else if (typeof value === 'number') {
+      } else if (typeof value === "number") {
         pairs.push(`${key}="${value}"`);
       } else if (value === "") {
         pairs.push(key);
@@ -69,7 +98,10 @@ class AttributeUtils {
 }
 
 class ComponentMapper {
-  static mapToHTMLTag(componentName: string, props: Record<string, any>): string {
+  static mapToHTMLTag(
+    componentName: string,
+    props: Record<string, any>
+  ): string {
     const mappings: Record<string, (props: Record<string, any>) => string> = {
       Title: (props) => {
         const tag = props.as || "h1";
@@ -109,9 +141,10 @@ class CSSScoper {
   static scopeSelector(selector: string, attr: string): string {
     const parts = selector.split(/(\s+|>|\+|~)/g);
     return parts
-      .map(part => /^\s+$/.test(part) || [">", "+", "~"].includes(part)
-        ? part
-        : this.addScopeToSegment(part.trim(), attr)
+      .map((part) =>
+        /^\s+$/.test(part) || [">", "+", "~"].includes(part)
+          ? part
+          : this.addScopeToSegment(part.trim(), attr)
       )
       .join("");
   }
@@ -160,7 +193,11 @@ class CSSScoper {
     return -1;
   }
 
-  private static processAtRule(rule: string, content: string, attr: string): string {
+  private static processAtRule(
+    rule: string,
+    content: string,
+    attr: string
+  ): string {
     const ruleName = rule.split(/\s+/)[0] || "";
 
     if (ruleName.startsWith("@keyframes")) {
@@ -170,10 +207,14 @@ class CSSScoper {
     }
   }
 
-  private static processRegularRule(selectors: string, content: string, attr: string): string {
+  private static processRegularRule(
+    selectors: string,
+    content: string,
+    attr: string
+  ): string {
     const scopedSelectors = selectors
       .split(",")
-      .map(selector => this.scopeSelector(selector.trim(), attr))
+      .map((selector) => this.scopeSelector(selector.trim(), attr))
       .join(", ");
 
     return `${scopedSelectors}{${content}}`;
@@ -182,25 +223,42 @@ class CSSScoper {
 
 // ===== PROCESSADOR DE TEMPLATE =====
 class TemplateProcessor {
-  constructor(private scopeAttr: string) { }
+  constructor(private scopeAttr: string) {}
 
-  processNode($: cheerio.CheerioAPI, node: Node): string {
+  async processNode($: cheerio.CheerioAPI, node: Node): Promise<string> {
     if (node.type === "text") {
       return (node as Text).data ?? "";
     }
 
     if (node.type === "tag") {
-      return this.processElement($, node as Element);
+      return await this.processElement($, node as Element);
     }
 
     return "";
   }
 
-  private processElement($: cheerio.CheerioAPI, element: Element): string {
+  private async processElement(
+    $: cheerio.CheerioAPI,
+    element: Element
+  ): Promise<string> {
     const tagName = element.name;
     const props = this.extractAttributes(element);
 
-    this.validateTag(tagName, props);
+    this.validateTag(tagName);
+
+    // ===== LÓGICA DE OTIMIZAÇÃO DE IMAGEM =====
+    // Intercepta o componente Image antes de renderizar
+    if (
+      tagName === "Image" &&
+      props.src &&
+      typeof props.src === "string" &&
+      !props.src.startsWith("http")
+    ) {
+      console.log(`[Compiler] Otimizando imagem local: ${props.src}`);
+      // Chama o otimizador e espera pelo novo caminho
+      const quality = typeof props.quality === "number" ? props.quality : 75;
+      props.src = await optimizeLocalImage(props.src, quality);
+    }
 
     const htmlTag = this.isComponent(tagName)
       ? ComponentMapper.mapToHTMLTag(tagName, props)
@@ -209,7 +267,7 @@ class TemplateProcessor {
     props[this.scopeAttr] = "";
 
     const attributes = AttributeUtils.objectToString(props);
-    const children = this.processChildren($, element);
+    const children = await this.processChildren($, element);
 
     return `<${htmlTag}${attributes}>${children}</${htmlTag}>`;
   }
@@ -227,17 +285,15 @@ class TemplateProcessor {
     return props;
   }
 
-  private validateTag(tagName: string, props: Record<string, any>): void {
+  private validateTag(tagName: string): void {
     const isComponent = this.isComponent(tagName);
 
-    if (isComponent) {
-      if (!CONFIG.NATIVE_COMPONENTS.has(tagName)) {
-        throw new Error(`Unknown Octopus component <${tagName}>`);
-      }
-    } else {
-      if (!CONFIG.ALLOWED_HTML_TAGS.has(tagName)) {
-        throw new Error(`HTML tag <${tagName}> is not allowed in Octopus templates`);
-      }
+    if (isComponent && !CONFIG.NATIVE_COMPONENTS.has(tagName)) {
+      throw new Error(`Unknown Octopus component <${tagName}>`);
+    } else if (!isComponent && !CONFIG.ALLOWED_HTML_TAGS.has(tagName)) {
+      throw new Error(
+        `HTML tag <${tagName}> is not allowed in Octopus templates`
+      );
     }
   }
 
@@ -245,12 +301,15 @@ class TemplateProcessor {
     return /^[A-Z]/.test(tagName);
   }
 
-  private processChildren($: cheerio.CheerioAPI, element: Element): string {
-    return $(element)
-      .contents()
-      .toArray()
-      .map(child => this.processNode($, child))
-      .join("");
+  private async processChildren(
+    $: cheerio.CheerioAPI,
+    element: Element
+  ): Promise<string> {
+    const childNodes = $(element).contents().toArray();
+    const childrenHtml = await Promise.all(
+      childNodes.map((child) => this.processNode($, child))
+    );
+    return childrenHtml.join("");
   }
 }
 
@@ -281,12 +340,12 @@ class TemplateParser {
 
 // ===== COMPILADOR PRINCIPAL =====
 class OctopusCompiler {
-  static compile(source: string): string {
+  static async compile(source: string): Promise<string> {
     const parts = TemplateParser.extractParts(source);
     const scopeAttr = this.generateScopeAttr(parts.template);
 
     const result = {
-      html: this.compileTemplate(parts.template, scopeAttr),
+      html: await this.compileTemplate(parts.template, scopeAttr),
       css: this.compileCSS(parts.style, scopeAttr),
       js: this.compileScript(parts.script),
     };
@@ -304,23 +363,31 @@ class OctopusCompiler {
     return `data-v-${hash}`;
   }
 
-  private static compileTemplate(template: string, scopeAttr: string): string {
+  private static async compileTemplate(
+    template: string,
+    scopeAttr: string
+  ): Promise<string> {
     if (!template) return "";
 
     const $ = cheerio.load(`<body>${template}</body>`, { xmlMode: true });
     const processor = new TemplateProcessor(scopeAttr);
     const rootChildren = $("body").contents().toArray();
 
-    return rootChildren
-      .map(node => processor.processNode($, node))
-      .join("");
+    const compiledNode = await Promise.all(
+      rootChildren.map((node) => processor.processNode($, node))
+    );
+
+    return compiledNode.join("");
   }
 
   private static compileCSS(style: string, scopeAttr: string): string {
     return style ? CSSScoper.scopeCSS(style, scopeAttr) : "";
   }
 
-  private static compileScript(script: { content: string; attributes: string }): string {
+  private static compileScript(script: {
+    content: string;
+    attributes: string;
+  }): string {
     if (!script.content) return "";
 
     const attrs = script.attributes ? ` ${script.attributes}` : "";
@@ -334,7 +401,7 @@ class OctopusCompiler {
 }
 
 // ===== API PÚBLICA =====
-export function compileOctopus(source: string): string {
+export async function compileOctopus(source: string): Promise<string> {
   return OctopusCompiler.compile(source);
 }
 
