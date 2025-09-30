@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/jsdom": "^27.0.0",
     "@types/react": "^19.1.14",
     "@types/sharp": "^0.32.0"
   },
@@ -18,7 +19,12 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@types/he": "^1.2.3",
     "cheerio": "^1.1.2",
+    "dompurify": "^3.2.7",
+    "he": "^1.2.0",
+    "html-void-elements": "^3.0.0",
+    "jsdom": "^27.0.0",
     "sharp": "^0.34.4"
   }
 }
