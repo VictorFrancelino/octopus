@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Element, Node as DomNode, Text } from "domhandler";
-import { AttributeUtils } from "./attributeUtils";
+import { AttributeUtils } from "../utils/attributeUtils";
 import { ComponentMapper } from "./componentMapper";
 import { optimizeLocalImage } from "../utils/imageOptimizer";
 
