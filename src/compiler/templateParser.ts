@@ -1,13 +1,4 @@
-export function extractParts(source: string) {
-  return {
-    template: extractTagContent(source, "template"),
-    style: extractTagContent(source, "style"),
-    script: {
-      content: extractTagContent(source, "script"),
-      attributes: extractScriptAttributes(source),
-    },
-  };
-}
+import { parseFrontmatter } from "./frontmatter";
 
 function extractTagContent(source: string, tag: string): string {
   const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\/${tag}>`, "i");
@@ -15,7 +6,19 @@ function extractTagContent(source: string, tag: string): string {
   return match?.[1]?.trim() ?? "";
 }
 
-function extractScriptAttributes(source: string): string {
-  const match = source.match(/<script([^>]*)>/i);
-  return match?.[1]?.trim() ?? "";
+export function extractParts(source: string) {
+  const { frontmatter, body } = parseFrontmatter(source);
+
+  return {
+    frontmatter,
+    template: extractTagContent(body, "template"),
+    style: extractTagContent(body, "style"),
+    script: {
+      content: extractTagContent(body, "script"),
+      attributes: ((): string => {
+        const m = body.match(/<script([^>]*)>/i);
+        return m?.[1]?.trim() ?? "";
+      })
+    },
+  };
 }

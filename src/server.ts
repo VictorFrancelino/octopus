@@ -4,6 +4,7 @@ import path from "path";
 import { compileOctopus } from "./compiler";
 import { buildRouteList, matchRoute, find404 } from "./router";
 import type { RouteEntry } from "./router";
+import { escape as heEscape } from "he";
 
 const INDEX_HTML = path.resolve(import.meta.dir, "../index.html");
 const PAGES_DIR = path.resolve(process.cwd(), "src/pages");
@@ -22,22 +23,30 @@ function readIndexTemplate(): string {
   }
 }
 
+/** small escape helper when injecting frontmatter */
+function escapeForHtml(s: any) {
+  return heEscape(String(s ?? ""));
+}
+
 /** render page using your compileOctopus and inject meta + params */
-async function renderPageFromOct(file: string, meta: { title?: string; description?: string }, params?: Record<string, string>): Promise<string> {
+async function renderPageFromOct(file: string, meta: { title?: string; description?: string } = {}, params?: Record<string, string>): Promise<string> {
   const template = readIndexTemplate();
-  const body = await compileOctopus(fs.readFileSync(file, "utf-8"));
+  const compiled = await compileOctopus(fs.readFileSync(file, "utf-8"));
+
+  const fm = compiled.frontmatter || {};
+  const title = fm.title ?? meta.title ?? path.basename(file).replace(/\.oct$/, "");
+  const description = fm.description ?? meta.description ?? "";
 
   const paramsScript = params && Object.keys(params).length
     ? `<script>window.__OCTO_PARAMS__ = ${JSON.stringify(params)};</script>`
     : "";
 
-  const title = meta.title ?? path.basename(file).replace(/\.oct$/, "");
-  const description = meta.description ?? "";
+  const body = `${paramsScript}${compiled.htmlBody}${compiled.css}${compiled.js}`;
 
   return template
-    .replace("{{title}}", title)
-    .replace("{{description}}", description)
-    .replace("{{body}}", `${paramsScript}${body}`);
+    .replace("{{title}}", escapeForHtml(title))
+    .replace("{{description}}", escapeForHtml(description))
+    .replace("{{body}}", body);
 }
 
 /** build routes at startup (and when pages change) */
@@ -88,27 +97,21 @@ serve({
 
     try {
       // 1) serve static files from /public first (images, css, runtime, etc)
-      // map url.pathname to public path (ensure no path traversal)
       try {
         const safeRequested = decodeURIComponent(url.pathname);
         const candidate = path.join(PUBLIC_DIR, safeRequested);
-        // quick containment check
         if (candidate.startsWith(PUBLIC_DIR)) {
           const f = Bun.file(candidate);
           if (await f.exists()) {
-            // let Bun infer Content-Type
             return new Response(f);
           }
         }
-      } catch (e) {
-        // ignore decode / path errors and continue to route matching
-      }
+      } catch (e) { }
 
       // 2) match route
       const matched = matchRoute(routePath, routes);
 
       if (!matched) {
-        // not found - try fallback 404.oct
         if (fallback404) {
           const html = await renderPageFromOct(fallback404, { title: "404 - Not Found" }, {});
           return new Response(html, { status: 404, headers: { "Content-Type": "text/html; charset=UTF-8" } });
@@ -117,11 +120,9 @@ serve({
       }
 
       // 3) matched route -> compile and render
-      // derive a simple meta from filename
       const titleName = path.basename(matched.file).replace(/\.oct$/, "");
       const meta = { title: `${titleName} | Octopus`, description: "" };
 
-      // render page and inject params as window.__OCTO_PARAMS__
       const html = await renderPageFromOct(matched.file, meta, matched.params);
 
       return new Response(html, {
@@ -129,14 +130,11 @@ serve({
       });
     } catch (err) {
       console.error("[server] error handling request:", err);
-      // on error, if 404 exists render it for dev diagnostics
       if (fallback404) {
         try {
           const html = await renderPageFromOct(fallback404, { title: "500 - Error" }, {});
           return new Response(html, { status: 500, headers: { "Content-Type": "text/html; charset=UTF-8" } });
-        } catch (e) {
-          // fallback plaintext
-        }
+        } catch (e) { }
       }
       return new Response("Erro interno do servidor", { status: 500 });
     }

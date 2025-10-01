@@ -1,3 +1,8 @@
+---
+title: Home
+description: "Learn about the Octopus framework."
+---
+
 <script>
   alert("Hello Octopus!");
 </script>
