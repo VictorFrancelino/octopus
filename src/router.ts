@@ -1,37 +1,38 @@
 import fs from "fs/promises";
 import path from "path";
+import { match as pathMatch, type MatchFunction } from "path-to-regexp";
 
 export type RouteEntry = {
-  pattern: string; // e.g. /users/:id or /posts/:slug*
-  regex: RegExp;
-  paramNames: string[]; // ['id']
-  file: string; // absolute path to .oct file
-  score: number; // used for sorting: higher = more specific
+  pattern: string;
+  matcher: MatchFunction<Record<string, string | string[] | undefined>>;
+  file: string;
+  score: number;
 };
 
 const PAGES_DIR = path.resolve(process.cwd(), "src/pages");
 
+/** cria matcher a partir do pattern (ex: "/users/:id" ou "/posts/:slug*") */
+function createMatcher(pattern: string): MatchFunction<Record<string, string | string[] | undefined>> {
+  return pathMatch(pattern, { decode: decodeURIComponent, end: true });
+}
+
 /** transforma caminho de arquivo relativo (pages/about.oct) -> route pattern */
-function filePathToPattern(relPath: string): string {
-  // normaliza separadores
+export function filePathToPattern(relPath: string): string {
   const parts = relPath.split(path.sep).map((p) => p.replace(/\\/g, "/"));
-  // remove .oct extension
   const last = parts[parts.length - 1];
   const base = last !== undefined ? last.replace(/\.oct$/i, "") : "";
-  if (base === "index" && parts.length === 1) return "/"; // pages/index.oct => /
+  if (base === "index" && parts.length === 1) return "/";
   if (base === "index") {
-    // pages/foo/index.oct => /foo
-    parts[parts.length - 1] = ""; // drop index
+    parts[parts.length - 1] = "";
   } else {
     parts[parts.length - 1] = base;
   }
 
-  const segs = parts.filter(Boolean); // remove empty
+  const segs = parts.filter(Boolean);
   const routeSegs = segs.map((seg) => {
-    // dynamic [id]
     const m = seg.match(/^\[(\.\.\.)?(.+?)\]$/);
     if (m) {
-      const isCatchAll = !!m[1]; // '...' present
+      const isCatchAll = !!m[1];
       const name = m[2];
       return isCatchAll ? `:${name}*` : `:${name}`;
     }
@@ -41,47 +42,15 @@ function filePathToPattern(relPath: string): string {
   return "/" + routeSegs.join("/");
 }
 
-/** cria regex e paramNames a partir de pattern */
-function patternToRegex(pattern: string): { regex: RegExp; paramNames: string[] } {
-  // escape regex for static parts, convert :name and :name* to groups
-  const paramNames: string[] = [];
-  let regexStr = "^";
-  const segs = pattern.split("/").filter(Boolean);
-  if (pattern === "/") {
-    return { regex: /^\/$/, paramNames: [] };
-  }
-
-  for (const seg of segs) {
-    regexStr += "\\/";
-    if (seg.startsWith(":") && seg.endsWith("*")) {
-      const name = seg.slice(1, -1);
-      paramNames.push(name);
-      regexStr += "(.+)";
-    } else if (seg.startsWith(":")) {
-      const name = seg.slice(1);
-      paramNames.push(name);
-      regexStr += "([^/]+)";
-    } else {
-      // static seg - escape it
-      regexStr += seg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  regexStr += "\\/?$"; // allow optional trailing slash
-  const regex = new RegExp(regexStr);
-  return { regex, paramNames };
-}
-
-/** heurística de especificidade: mais static segments => maior score.
- * catch-all penaliza fortemente.
- */
+/** heurística de especificidade */
 function calcScore(pattern: string) {
   if (pattern === "/") return 1000;
   const segs = pattern.split("/").filter(Boolean);
   let score = 0;
   for (const s of segs) {
-    if (s.startsWith(":") && s.endsWith("*")) score += 0; // catch-all crappy
-    else if (s.startsWith(":")) score += 5; // dynamic
-    else score += 10; // static
+    if (s.startsWith(":") && s.endsWith("*")) score += 0;
+    else if (s.startsWith(":")) score += 5;
+    else score += 10;
   }
   return score;
 }
@@ -99,47 +68,37 @@ export async function buildRouteList(pagesDir = PAGES_DIR): Promise<RouteEntry[]
         await walk(abs, rel);
       } else if (it.isFile() && it.name.endsWith(".oct")) {
         const pattern = filePathToPattern(rel);
-        const { regex, paramNames } = patternToRegex(pattern);
+        const matcher = createMatcher(pattern);
         const score = calcScore(pattern);
-        entries.push({
-          pattern,
-          regex,
-          paramNames,
-          file: path.resolve(dir, it.name),
-          score,
-        });
+        entries.push({ pattern, matcher, file: path.resolve(dir, it.name), score });
       }
     }
   }
 
   await walk(pagesDir, "");
-  // sort by score desc (more specific first), tie-breaker: longer pattern first
-  entries.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return b.pattern.length - a.pattern.length;
-  });
-
+  entries.sort((a, b) => (b.score - a.score) || (b.pattern.length - a.pattern.length));
   return entries;
 }
 
 /** encontra a rota que casa com pathname e devolve file + params */
 export function matchRoute(pathname: string, routes: RouteEntry[]): { file: string; params: Record<string, string> } | null {
-  // normalize pathname: remove trailing slashes (except root)
   let p = pathname || "/";
   if (p !== "/" && p.endsWith("/")) p = p.replace(/\/+$/, "");
 
   for (const r of routes) {
-    const m = r.regex.exec(p);
-    if (!m) continue;
+    const res = r.matcher(p);
+    if (!res) continue;
+
+    const rawParams = res.params || {};
     const params: Record<string, string> = {};
-    if (r.paramNames.length) {
-      // match groups in order
-      // m[1], m[2], etc corresponds to paramNames
-      r.paramNames.forEach((name, idx) => {
-        const val = m[idx + 1] ?? "";
-        params[name] = decodeURIComponent(val);
-      });
+
+    // normalize: values can be string | string[] | undefined
+    for (const [k, v] of Object.entries(rawParams)) {
+      if (v == null) params[k] = "";
+      else if (Array.isArray(v)) params[k] = v.map(String).join("/");
+      else params[k] = String(v);
     }
+
     return { file: r.file, params };
   }
 
