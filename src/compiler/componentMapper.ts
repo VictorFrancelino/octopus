@@ -14,7 +14,6 @@ export const ComponentMapper = {
       Center: () => "div",
       Row: () => "div",
       Column: () => "div",
-      Image: () => "img",
     };
 
     const mapper = mappings[componentName];

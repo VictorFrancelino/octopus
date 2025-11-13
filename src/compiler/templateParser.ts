@@ -1,24 +1,32 @@
 import { parseFrontmatter } from "./frontmatter";
 
 function extractTagContent(source: string, tag: string): string {
-  const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\/${tag}>`, "i");
+  const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
   const match = source.match(regex);
   return match?.[1]?.trim() ?? "";
 }
 
 export function extractParts(source: string) {
-  const { frontmatter, body } = parseFrontmatter(source);
+  const { frontmatter, body } = parseFrontmatter(String(source ?? ""));
+
+  const template = extractTagContent(body, "template");
+  const style = extractTagContent(body, "style");
+  const scriptContent = extractTagContent(body, "script");
+
+  // capture the attributes inside the opening <script ...>
+  const attrsMatch = body.match(/<script\b([^>]*)>/i);
+  // attrsMatch[1] might be undefined -> normalize to empty string
+  const rawAttrs = (attrsMatch?.[1] ?? "").trim();
+  // sanitize: remove any stray '>' (safety) and trim whitespace
+  const scriptAttributes = rawAttrs.replace(/>/g, "").trim();
 
   return {
     frontmatter,
-    template: extractTagContent(body, "template"),
-    style: extractTagContent(body, "style"),
+    template,
+    style,
     script: {
-      content: extractTagContent(body, "script"),
-      attributes: ((): string => {
-        const m = body.match(/<script([^>]*)>/i);
-        return m?.[1]?.trim() ?? "";
-      })
+      content: scriptContent,
+      attributes: scriptAttributes,
     },
   };
 }

@@ -1,6 +1,6 @@
 import fs from "fs";
 import { extractParts } from "./templateParser";
-import { CSSScoper } from "./cssScoper";
+import { scopeCSS } from "./scopeCSS";
 import * as cheerio from "cheerio";
 import crypto from "crypto";
 import { TemplateProcessor } from "./templateProcessor";
@@ -31,7 +31,7 @@ export async function compileOctopus(source: string): Promise<CompilationResult>
   const scopeAttr = generateScopeAttr(parts.template);
 
   const htmlBody = await compileTemplate(parts.template ?? "", scopeAttr);
-  const css = parts.style ? CSSScoper.scopeCSS(parts.style, scopeAttr) : "";
+  const css = parts.style ? scopeCSS(parts.style, scopeAttr) : "";
   const js = parts.script.content ? `\n<script ${parts.script.attributes}>${parts.script.content}\n</script>` : "";
 
   return {

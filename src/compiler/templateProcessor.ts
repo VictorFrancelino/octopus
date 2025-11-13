@@ -2,7 +2,6 @@ import * as cheerio from "cheerio";
 import type { Element, Node as DomNode, Text } from "domhandler";
 import { AttributeUtils } from "../utils/attributeUtils";
 import { ComponentMapper } from "./componentMapper";
-import { optimizeLocalImage } from "../utils/imageOptimizer";
 
 const COMPONENT_DEFAULTS: Record<string, {
   defaultClass?: string;
@@ -41,16 +40,6 @@ export class TemplateProcessor {
     const props = this.extractAttributes(element);
 
     this.validateTag(tagName);
-
-    // image optimization hook (local images only)
-    if (tagName === "Image" && props.src && typeof props.src === "string" && !props.src.startsWith("http")) {
-      const quality = typeof props.quality === "number" ? props.quality : 75;
-      try {
-        props.src = await optimizeLocalImage(props.src, quality);
-      } catch (e) {
-        console.warn("[optimizeLocalImage] failed:", e);
-      }
-    }
 
     // inject component defaults (class + style) for known native components
     if (/^[A-Z]/.test(tagName)) {
