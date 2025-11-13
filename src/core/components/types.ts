@@ -3,7 +3,6 @@ import type {
   AnchorHTMLAttributes,
   InputHTMLAttributes,
   ButtonHTMLAttributes,
-  ImgHTMLAttributes,
 } from "react";
 
 /*
@@ -23,27 +22,6 @@ export type TitleProps = ComponentProps & {
   as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 };
 export type TextProps = ComponentProps & { as?: "p" | "span" | "small" };
-
-export type ImageProps = {
-  src: string;
-  alt: string;
-  width?: number;
-  height?: number;
-  loading?: 'lazy' | 'eager';
-  decoding?: 'async' | 'sync' | 'auto';
-  srcSet?: string;
-  sizes?: string;
-  class?: string;
-  style?: Record<string, any> | string;
-  // Otimizações avançadas
-  quality?: number;
-  format?: 'auto' | 'webp' | 'avif' | 'jpeg' | 'png';
-  placeholder?: 'blur' | 'empty';
-  blurDataURL?: string;
-  // Atributos de acessibilidade
-  role?: string;
-  ariaLabel?: string;
-}
 
 export type LinkProps = Omit<
   AnchorHTMLAttributes<HTMLLinkElement>,
