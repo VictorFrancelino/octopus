@@ -1,4 +1,4 @@
 <template>
-  <Title>404 - Página não encontrada</Title>
-  <Text>Foi mal, não conseguimos encontrar a página que você está procurando.</Text>
+  <h1>404 - Página não encontrada</h1>
+  <p>Foi mal, não conseguimos encontrar a página que você está procurando.</p>
 </template>

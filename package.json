@@ -5,35 +5,36 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun src/cli.ts dev",
-    "build": "bun src/cli.ts build",
+    "dev": "bun src/cli/index.ts dev",
+    "build": "bun src/cli/index.ts build",
     "start": "bun ./build/server.js"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9",
     "@types/jsdom": "^27.0.0",
-    "@types/react": "^19.1.14"
+    "@types/prompts": "^2.4.9"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@types/he": "^1.2.3",
-    "@types/prompts": "^2.4.9",
     "boxen": "5.0.1",
     "cheerio": "^1.1.2",
     "chokidar": "^4.0.3",
+    "clsx": "^2.1.1",
+    "csstype": "^3.2.2",
     "dompurify": "^3.2.7",
-    "gray-matter": "^4.0.3",
-    "he": "^1.2.0",
+    "fast-glob": "^3.3.3",
     "html-void-elements": "^3.0.0",
+    "isomorphic-dompurify": "^2.32.0",
+    "js-yaml": "^4.1.1",
     "jsdom": "^27.0.0",
     "lru-cache": "^11.2.2",
     "nanospinner": "^1.2.2",
-    "path-to-regexp": "^8.3.0",
     "picocolors": "^1.1.1",
-    "postcss": "^8.5.6",
-    "postcss-selector-parser": "^7.1.0",
-    "prompts": "^2.4.2"
+    "prompts": "^2.4.2",
+    "radix3": "^1.1.2",
+    "supertest": "^7.1.4"
   }
 }

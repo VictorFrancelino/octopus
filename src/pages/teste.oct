@@ -1,0 +1,185 @@
+---
+lang: "pt-BR"
+title: "Octopus Playground"
+description: "A tiny demo site built with Octopus — clean, fast and playful."
+---
+
+<script>
+  // Simple interactive behaviours for the demo
+  // 1) entrance animation trigger
+  // 2) theme toggle (light / dark)
+  // 3) smooth in-view reveal for sections
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // entrance: add class to start hero animation
+    requestAnimationFrame(() => {
+      const hero = document.querySelector(".hero");
+      if (hero) hero.classList.add("enter");
+    });
+
+    // theme toggle
+    const btn = document.querySelector("#theme-toggle");
+    btn?.addEventListener("click", () => {
+      const root = document.documentElement;
+      const isDark = root.getAttribute("data-theme") === "dark";
+      root.setAttribute("data-theme", isDark ? "light" : "dark");
+      btn.textContent = isDark ? "Dark" : "Light";
+    });
+
+    // simple reveal on scroll
+    const reveals = Array.from(document.querySelectorAll(".reveal"));
+    const onScroll = () => {
+      const h = window.innerHeight;
+      reveals.forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.top < h - 80) el.classList.add("visible");
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+  });
+</script>
+
+<template>
+  <div class="page">
+    <header class="nav">
+      <div class="brand">
+        <Title as="h1">Octopus</Title>
+        <span class="badge">playground</span>
+      </div>
+      <nav class="nav-actions">
+        <a href="#features">Features</a>
+        <a href="#showcase">Showcase</a>
+        <button id="theme-toggle" aria-label="Toggle theme">Dark</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-inner">
+          <h1 id="hero-title">Fast. Simple. Human.</h1>
+          <p class="lead">An HTML-first micro-framework that keeps things lean and delightful — for beginners and experts alike.</p>
+          <div class="cta-row">
+            <a class="btn primary" href="#features">Get started</a>
+            <a class="btn ghost" href="#showcase">See examples</a>
+          </div>
+        </div>
+        <div class="hero-image" aria-hidden="true">
+          <img src="https://images.unsplash.com/photo-1535223289827-42f1e9919769?q=80&w=1200&auto=format&fit=crop&ixlib=rb-4.0.3&s=example" alt="Abstract art"/>
+        </div>
+      </section>
+
+      <section id="features" class="container reveal">
+        <h2 as="h2">What Octopus gives you</Title>
+        <div class="grid">
+          <article class="card">
+            <h3>HTML-first</h3>
+            <p>Write plain HTML-like components, no JSX required. Fast onboarding for newcomers.</p>
+          </article>
+          <article class="card">
+            <h3>Scoped CSS</h3>
+            <p>Automatic CSS scoping keeps styles safe and predictable without mental overhead.</p>
+          </article>
+          <article class="card">
+            <h3>Dev-first</h3>
+            <p>Hot dev server, simple CLI, and zero-config defaults so you can build, not configure.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="showcase" class="container reveal">
+        <h2 as="h2">Live examples</h2>
+        <div class="showcase">
+          <div class="sample card">
+            <h4>Animated card</h4>
+            <p>CSS-only animation with subtle motion to keep the UI alive.</p>
+          </div>
+          <div class="sample card">
+            <h4>Responsive layout</h4>
+            <p>Layouts that adapt — component-first classes make structure clear.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Made with ❤️ — Octopus Framework • Minimal demo</p>
+      <div class="credits">© 2025 Octopus</div>
+    </footer>
+  </div>
+</template>
+
+<style>
+  /* Root + theme */
+  :root {
+    --bg: #0f1724;
+    --card: #0b1220;
+    --muted: #9aa4b2;
+    --accent: linear-gradient(135deg,#7c5cff 0%,#5ee7df 100%);
+    --glass: rgba(255,255,255,0.04);
+    color-scheme: dark;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff;
+    --card: #ffffff;
+    --muted: #5b6b76;
+    --glass: rgba(0,0,0,0.04);
+    color-scheme: light;
+  }
+  html,body { height:100%; margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: radial-gradient(1200px 600px at 10% 10%, rgba(124,92,255,0.06), transparent), var(--bg); color: #e6eef6; }
+
+  .page { min-height:100vh; display:flex; flex-direction:column; }
+
+  /* Nav */
+  .nav { display:flex; align-items:center; justify-content:space-between; padding:20px 28px; gap:12px; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .brand h1 { margin:0; font-size:1.15rem; letter-spacing: -0.02em; }
+  .badge { background:var(--glass); color:var(--muted); padding:4px 8px; border-radius:999px; font-size:12px; }
+
+  .nav-actions { display:flex; gap:12px; align-items:center; }
+  .nav-actions a { color:var(--muted); text-decoration:none; font-weight:600; }
+  .nav-actions button { background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); padding:8px 10px; border-radius:8px; cursor:pointer; }
+
+  /* Hero */
+  .hero { display:flex; align-items:center; gap:40px; padding:64px 28px; position:relative; overflow:hidden; }
+  .hero-inner { max-width:720px; z-index:2; transform: translateY(12px); opacity:0; transition: all 700ms cubic-bezier(.2,.9,.2,1); }
+  .hero.enter .hero-inner { transform:none; opacity:1; }
+  #hero-title { margin:0 0 12px 0; font-size:42px; line-height:1.02; color: #ffffff; }
+  .lead { margin:0 0 20px 0; color:var(--muted); font-size:18px; }
+
+  .cta-row { display:flex; gap:12px; margin-top:6px; }
+  .btn { padding:12px 16px; border-radius:12px; text-decoration:none; font-weight:700; display:inline-block; }
+  .btn.primary { background:var(--accent); color:#071023; box-shadow: 0 6px 18px rgba(7,16,35,0.35); }
+  .btn.ghost { background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); }
+
+  .hero-image { flex:1; display:flex; justify-content:center; align-items:center; min-height:300px; }
+  .hero-image img { width:100%; max-width:560px; border-radius:16px; transform:translateY(18px) scale(0.98); opacity:0; transition: all 900ms ease; box-shadow: 0 12px 40px rgba(2,6,23,0.6); }
+  .hero.enter .hero-image img { transform:none; opacity:1; }
+
+  /* Containers & grid */
+  .container { padding:48px 28px; max-width:1100px; margin:0 auto; }
+  .grid { display:grid; gap:18px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top:18px; }
+  .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:18px; border-radius:12px; border:1px solid rgba(255,255,255,0.03); backdrop-filter: blur(6px); color:inherit; }
+
+  /* showcase */
+  .showcase { display:flex; gap:18px; flex-wrap:wrap; margin-top:16px; }
+  .sample { padding:20px; width:260px; border-radius:10px; transition: transform 400ms cubic-bezier(.2,.9,.2,1); }
+  .sample:hover { transform: translateY(-6px) rotate(-0.3deg); }
+
+  /* reveal */
+  .reveal { opacity:0; transform: translateY(16px); transition: all 600ms cubic-bezier(.2,.9,.2,1); }
+  .reveal.visible { opacity:1; transform:none; }
+
+  /* footer */
+  .footer { margin-top:auto; padding:28px; display:flex; justify-content:space-between; align-items:center; gap:12px; border-top:1px solid rgba(255,255,255,0.03); color:var(--muted); }
+
+  /* responsive */
+  @media (max-width:900px) {
+    .hero { flex-direction:column-reverse; padding:40px 18px; }
+    #hero-title { font-size:32px; }
+    .hero-image img { max-width:420px; }
+  }
+
+  /* small utilities */
+  .center { display:flex; align-items:center; justify-content:center; }
+</style>

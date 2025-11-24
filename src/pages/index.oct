@@ -8,11 +8,11 @@ description: "Learn about the Octopus framework."
 </script>
 
 <template>
-  <Center class="main">
-    <Title id="title-1">Hello Octopus</Title>
-    <Title as="h2">Isso é um título</Title>
-    <Text>Frameworkzinho na marra</Text>
-  </Center>
+  <div class="main">
+    <h1 id="title-1">Hello Octopus</h1>
+    <h2>Isso é um título</h2>
+    <p>Frameworkzinho na marra</p>
+  </div>
 </template>
 
 <style>
